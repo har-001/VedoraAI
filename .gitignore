@@ -1,0 +1,67 @@
+# ============================================
+# VedoraAI — Git Ignore
+# ============================================
+
+# ── Environment ──────────────────────────────
+.env
+.env.local
+.env.*.local
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Python ───────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.Python
+env/
+venv/
+.venv/
+
+# ── Node ─────────────────────────────────────
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+
+# ── Flutter ──────────────────────────────────
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.iml
+
+# ── IDE ──────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Docker ───────────────────────────────────
+docker-compose.override.yml
+
+# ── OS ───────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Testing ──────────────────────────────────
+.coverage
+htmlcov/
+.pytest_cache/
+coverage/
+
+# ── Misc ─────────────────────────────────────
+*.log
+*.tmp
+.cache/

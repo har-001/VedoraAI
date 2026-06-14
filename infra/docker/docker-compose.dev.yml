@@ -1,0 +1,81 @@
+# ============================================
+# VedoraAI — Development Docker Compose
+# ============================================
+# Usage: docker-compose -f docker-compose.dev.yml up -d
+
+version: "3.9"
+
+services:
+  # ── PostgreSQL ───────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: vedoraai-postgres
+    environment:
+      POSTGRES_USER: vedora
+      POSTGRES_PASSWORD: vedora_secret
+      POSTGRES_DB: vedoraai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vedora -d vedoraai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: vedoraai-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── RabbitMQ ─────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: vedoraai-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: vedora
+      RABBITMQ_DEFAULT_PASS: vedora_secret
+    ports:
+      - "5672:5672"
+      - "15672:15672"  # Management UI
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+
+  # ── Backend API ──────────────────────────────
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: vedoraai-backend
+    env_file:
+      - ../.env.example
+    environment:
+      DATABASE_URL: postgresql+asyncpg://vedora:vedora_secret@postgres:5432/vedoraai
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: development
+      DEBUG: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  rabbitmqdata:
