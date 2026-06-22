@@ -308,7 +308,22 @@ function DashboardLayoutContent({
                 {isActive(item.href) && <div className="sidebar-active-indicator" />}
               </Link>
             ))}
+            {user?.role === "admin" && (
+              <Link
+                href="/dashboard/admin"
+                className={`sidebar-nav-item ${isActive("/dashboard/admin") ? "active" : ""}`}
+                title={sidebarCollapsed ? "Admin Panel" : undefined}
+                onClick={() => setMobileSidebarOpen(false)}
+              >
+                <span className="sidebar-nav-icon">🛡️</span>
+                {!sidebarCollapsed && (
+                  <span className="sidebar-nav-text">Admin Panel</span>
+                )}
+                {isActive("/dashboard/admin") && <div className="sidebar-active-indicator" />}
+              </Link>
+            )}
           </div>
+
 
           <div className="sidebar-nav-divider" />
 

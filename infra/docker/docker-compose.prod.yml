@@ -1,0 +1,83 @@
+# ============================================
+# VedoraAI — Production Docker Compose Stacks
+# ============================================
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+
+version: "3.9"
+
+services:
+  # ── PostgreSQL Database ──────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: vedoraai-postgres-prod
+    environment:
+      POSTGRES_USER: vedora
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vedora_prod_secret}
+      POSTGRES_DB: vedoraai_prod
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vedora -d vedoraai_prod"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  # ── Redis Cache & PubSub ──────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: vedoraai-redis-prod
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata_prod:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  # ── Backend API (FastAPI) ─────────────────────
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    container_name: vedoraai-backend-prod
+    environment:
+      DATABASE_URL: postgresql+asyncpg://vedora:${POSTGRES_PASSWORD:-vedora_prod_secret}@postgres:5432/vedoraai_prod
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: production
+      DEBUG: "false"
+      SECRET_KEY: ${SECRET_KEY:-your-production-secret-key-change-me}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-production-jwt-signing-key}
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost,https://vedoraai.com
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: always
+
+  # ── Frontend (Next.js) ────────────────────────
+  frontend:
+    build:
+      context: ../../web
+      dockerfile: Dockerfile
+    container_name: vedoraai-frontend-prod
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  pgdata_prod:
+  redisdata_prod:

@@ -120,6 +120,11 @@ def _register_routes(app: FastAPI):
     app.include_router(notifications_router, prefix=api_prefix)
     app.include_router(portfolio_analytics_router, prefix=api_prefix)
 
+    # Phase 7 — Enterprise Admin
+    from app.api.v1.admin import router as admin_router
+    app.include_router(admin_router, prefix=api_prefix)
+
+
 
 # Create app instance
 app = create_app()
