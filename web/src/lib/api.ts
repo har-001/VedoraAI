@@ -230,6 +230,99 @@ export interface CheckAlertsResponse {
   all_alerts: AlertResponse[];
 }
 
+export interface StockDetailResponse {
+  symbol: string;
+  raw_symbol: string;
+  name: string;
+  exchange: string;
+  currency: string;
+  current_price: number;
+  previous_close: number;
+  change: number;
+  change_percent: number;
+  day_high: number;
+  day_low: number;
+  volume: number;
+  market_state: string;
+  stats: {
+    week52_high: number;
+    week52_low: number;
+    avg_volume: number;
+    sma_50: number;
+    sma_200: number;
+  };
+  performance: {
+    "1d": number;
+    "1w": number;
+    "1m": number;
+    "3m": number;
+    "6m": number;
+  };
+  chart_6m: ChartCandle[];
+  chart_1y: ChartCandle[];
+  error?: string;
+}
+
+export interface PortfolioAnalyticsHolding {
+  symbol: string;
+  name: string;
+  quantity: number;
+  avg_buy_price: number;
+  current_price: number;
+  current_value: number;
+  invested_value: number;
+  pnl: number;
+  pnl_percent: number;
+  day_change: number;
+  sector: string;
+  weight: number;
+}
+
+export interface PortfolioAnalyticsSector {
+  sector: string;
+  value: number;
+  weight: number;
+  count: number;
+}
+
+export interface PortfolioAnalyticsResponse {
+  portfolio_id: string;
+  portfolio_name: string;
+  total_value: number;
+  total_invested: number;
+  total_pnl: number;
+  total_pnl_percent: number;
+  allocation: PortfolioAnalyticsHolding[];
+  sector_allocation: PortfolioAnalyticsSector[];
+  risk_metrics: {
+    total_holdings: number;
+    total_sectors: number;
+    concentration_top: number;
+    diversification_score: number;
+    largest_position: string | null;
+    volatility_label: string;
+  };
+  top_performers: PortfolioAnalyticsHolding[];
+  bottom_performers: PortfolioAnalyticsHolding[];
+}
+
+export interface NotificationResponse {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  category: string;
+  symbol: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationSummaryResponse {
+  notifications: NotificationResponse[];
+  unread_count: number;
+  total: number;
+}
+
 interface ApiOptions extends RequestInit {
 
   token?: string;
@@ -652,6 +745,39 @@ class ApiClient {
   async checkAlerts() {
     return this.request<CheckAlertsResponse>("/alerts/check", {
       method: "POST",
+    });
+  }
+
+  // ── Stock Detail ────────────────────────────
+  async getStockDetail(symbol: string) {
+    return this.request<StockDetailResponse>(`/market/detail/${symbol}`);
+  }
+
+  // ── Portfolio Analytics ─────────────────────
+  async getPortfolioAnalytics(portfolioId: string) {
+    return this.request<PortfolioAnalyticsResponse>(`/portfolios/${portfolioId}/analytics`);
+  }
+
+  // ── Notifications ───────────────────────────
+  async getNotifications(limit = 30) {
+    return this.request<NotificationSummaryResponse>(`/notifications?limit=${limit}`);
+  }
+
+  async markAllNotificationsRead() {
+    return this.request<{ message: string }>("/notifications/read", {
+      method: "PUT",
+    });
+  }
+
+  async markNotificationRead(id: string) {
+    return this.request<{ message: string }>(`/notifications/${id}/read`, {
+      method: "PUT",
+    });
+  }
+
+  async clearNotifications() {
+    return this.request<{ message: string }>("/notifications/clear", {
+      method: "DELETE",
     });
   }
 

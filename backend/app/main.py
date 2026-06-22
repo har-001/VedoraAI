@@ -112,6 +112,14 @@ def _register_routes(app: FastAPI):
     app.include_router(community_router, prefix=api_prefix)
     app.include_router(alerts_router, prefix=api_prefix)
 
+    # Phase 6 — Advanced Intelligence & Analytics
+    from app.api.v1.stock_detail import router as stock_detail_router
+    from app.api.v1.notifications import router as notifications_router
+    from app.api.v1.portfolio_analytics import router as portfolio_analytics_router
+    app.include_router(stock_detail_router, prefix=api_prefix)
+    app.include_router(notifications_router, prefix=api_prefix)
+    app.include_router(portfolio_analytics_router, prefix=api_prefix)
+
 
 # Create app instance
 app = create_app()

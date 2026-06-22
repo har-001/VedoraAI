@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import api, { BacktestResponse, TradeLogItem } from "@/lib/api";
 
 const PRESETS = [
@@ -17,7 +18,8 @@ export default function BacktestPage() {
   const [symbol, setSymbol] = useState("RELIANCE");
   const [strategy, setStrategy] = useState("sma_crossover");
   const [capital, setCapital] = useState(100000);
-  const [range, setRange] = useState("1y");
+  const [range, setRange] = useState("6mo");
+  const [user, setUser] = useState<{ subscription_tier?: string } | null>(null);
 
   // Strategy Parameters
   const [smaFast, setSmaFast] = useState(10);
@@ -40,6 +42,12 @@ export default function BacktestPage() {
 
   useEffect(() => {
     document.title = "Strategy Lab — VedoraAI";
+    const userData = localStorage.getItem("vedora_user");
+    if (userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (err) { /* ignore */ }
+    }
   }, []);
 
   const handleRun = async () => {
@@ -392,8 +400,12 @@ export default function BacktestPage() {
             >
               <option value="3mo" style={{ background: "var(--surface)" }}>3 Months</option>
               <option value="6mo" style={{ background: "var(--surface)" }}>6 Months</option>
-              <option value="1y" style={{ background: "var(--surface)" }}>1 Year</option>
-              <option value="2y" style={{ background: "var(--surface)" }}>2 Years</option>
+              <option value="1y" disabled={user?.subscription_tier !== "pro"} style={{ background: "var(--surface)" }}>
+                1 Year {user?.subscription_tier !== "pro" ? " 🔒 Pro" : ""}
+              </option>
+              <option value="2y" disabled={user?.subscription_tier !== "pro"} style={{ background: "var(--surface)" }}>
+                2 Years {user?.subscription_tier !== "pro" ? " 🔒 Pro" : ""}
+              </option>
             </select>
             <label htmlFor="backtest-range" className="input-label">Simulation Window</label>
           </div>
@@ -496,75 +508,150 @@ export default function BacktestPage() {
               </div>
 
               {/* Trade Log */}
-              <div className="dash-panel" style={{ overflow: "auto" }}>
-                <h3 style={{ fontFamily: "var(--font-heading)", fontSize: 15, fontWeight: 700, marginBottom: 16, marginTop: 0 }}>
-                  📋 Transactions History
-                </h3>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
-                      <th style={{ textAlign: "left", padding: "8px 12px", color: "var(--text-muted)" }}>Date</th>
-                      <th style={{ textAlign: "left", padding: "8px 12px", color: "var(--text-muted)" }}>Action</th>
-                      <th style={{ textAlign: "right", padding: "8px 12px", color: "var(--text-muted)" }}>Execution Price</th>
-                      <th style={{ textAlign: "right", padding: "8px 12px", color: "var(--text-muted)" }}>Quantity</th>
-                      <th style={{ textAlign: "right", padding: "8px 12px", color: "var(--text-muted)" }}>Trade Value</th>
-                      <th style={{ textAlign: "right", padding: "8px 12px", color: "var(--text-muted)" }}>P&L</th>
-                      <th style={{ textAlign: "right", padding: "8px 12px", color: "var(--text-muted)" }}>Capital Balance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {results.trade_log.map((trade: TradeLogItem, i: number) => {
-                      const isBuy = trade.action === "BUY";
-                      const isSell = trade.action.startsWith("SELL");
-                      return (
-                        <tr
-                          key={i}
-                          style={{
-                            borderBottom: "1px solid var(--border)",
-                            background: isBuy ? "rgba(0, 230, 118, 0.01)" : isSell ? "rgba(255, 82, 82, 0.01)" : "transparent",
-                          }}
-                        >
-                          <td style={{ padding: "10px 12px", fontWeight: 600 }}>{trade.date}</td>
-                          <td style={{ padding: "10px 12px" }}>
-                            <span style={{
-                              padding: "2px 8px",
-                              borderRadius: 4,
-                              fontSize: 11,
-                              fontWeight: 700,
-                              background: isBuy ? "var(--bullish-bg)" : "var(--bearish-bg)",
-                              color: isBuy ? "var(--bullish)" : "var(--bearish)"
-                            }}>
-                              {trade.action}
-                            </span>
-                          </td>
-                          <td style={{ padding: "10px 12px", textAlign: "right", fontFamily: "var(--font-mono)" }}>
-                            ₹{trade.price.toLocaleString("en-IN")}
-                          </td>
-                          <td style={{ padding: "10px 12px", textAlign: "right" }}>{trade.quantity}</td>
-                          <td style={{ padding: "10px 12px", textAlign: "right", fontFamily: "var(--font-mono)" }}>
-                            ₹{trade.value.toLocaleString("en-IN")}
-                          </td>
-                          <td style={{
-                            padding: "10px 12px",
-                            textAlign: "right",
-                            fontWeight: 700,
-                            color: trade.pnl > 0 ? "var(--bullish)" : trade.pnl < 0 ? "var(--bearish)" : "var(--text-secondary)"
-                          }}>
-                            {trade.pnl > 0 ? "+" : ""}{trade.pnl !== 0 ? `₹${trade.pnl.toLocaleString("en-IN")}` : "—"}
-                            {trade.pnl_percent !== 0 && (
-                              <span style={{ fontSize: 11, fontWeight: 500, marginLeft: 4 }}>
-                                ({trade.pnl_percent > 0 ? "+" : ""}{trade.pnl_percent}%)
+              <div className="dash-panel" style={{ overflow: "auto", position: "relative" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <h3 style={{ fontFamily: "var(--font-heading)", fontSize: 15, fontWeight: 700, margin: 0 }}>
+                    📋 Transactions History
+                  </h3>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={() => {
+                        if (user?.subscription_tier !== "pro") {
+                          alert("Exporting is a premium feature. Please upgrade to Pro!");
+                          return;
+                        }
+                        alert("Exporting trade log to CSV...");
+                      }}
+                      className="btn btn-secondary btn-xs"
+                      style={{ fontSize: 11, padding: "4px 8px" }}
+                    >
+                      Export CSV
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (user?.subscription_tier !== "pro") {
+                          alert("Exporting is a premium feature. Please upgrade to Pro!");
+                          return;
+                        }
+                        alert("Exporting trade log to PDF...");
+                      }}
+                      className="btn btn-secondary btn-xs"
+                      style={{ fontSize: 11, padding: "4px 8px" }}
+                    >
+                      Export PDF
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ filter: user?.subscription_tier !== "pro" ? "blur(3px)" : "none", pointerEvents: user?.subscription_tier !== "pro" ? "none" : "auto", minHeight: 120 }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+                        <th style={{ textAlign: "left", padding: "8px 12px", color: "var(--text-muted)" }}>Date</th>
+                        <th style={{ textAlign: "left", padding: "8px 12px", color: "var(--text-muted)" }}>Action</th>
+                        <th style={{ textAlign: "right", padding: "8px 12px", color: "var(--text-muted)" }}>Execution Price</th>
+                        <th style={{ textAlign: "right", padding: "8px 12px", color: "var(--text-muted)" }}>Quantity</th>
+                        <th style={{ textAlign: "right", padding: "8px 12px", color: "var(--text-muted)" }}>Trade Value</th>
+                        <th style={{ textAlign: "right", padding: "8px 12px", color: "var(--text-muted)" }}>P&L</th>
+                        <th style={{ textAlign: "right", padding: "8px 12px", color: "var(--text-muted)" }}>Capital Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {results.trade_log.map((trade: TradeLogItem, i: number) => {
+                        const isBuy = trade.action === "BUY";
+                        const isSell = trade.action.startsWith("SELL");
+                        return (
+                          <tr
+                            key={i}
+                            style={{
+                              borderBottom: "1px solid var(--border)",
+                              background: isBuy ? "rgba(0, 230, 118, 0.01)" : isSell ? "rgba(255, 82, 82, 0.01)" : "transparent",
+                            }}
+                          >
+                            <td style={{ padding: "10px 12px", fontWeight: 600 }}>{trade.date}</td>
+                            <td style={{ padding: "10px 12px" }}>
+                              <span style={{
+                                padding: "2px 8px",
+                                borderRadius: 4,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                background: isBuy ? "var(--bullish-bg)" : "var(--bearish-bg)",
+                                color: isBuy ? "var(--bullish)" : "var(--bearish)"
+                              }}>
+                                {trade.action}
                               </span>
-                            )}
-                          </td>
-                          <td style={{ padding: "10px 12px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
-                            ₹{trade.balance.toLocaleString("en-IN")}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            </td>
+                            <td style={{ padding: "10px 12px", textAlign: "right", fontFamily: "var(--font-mono)" }}>
+                              ₹{trade.price.toLocaleString("en-IN")}
+                            </td>
+                            <td style={{ padding: "10px 12px", textAlign: "right" }}>{trade.quantity}</td>
+                            <td style={{ padding: "10px 12px", textAlign: "right", fontFamily: "var(--font-mono)" }}>
+                              ₹{trade.value.toLocaleString("en-IN")}
+                            </td>
+                            <td style={{
+                              padding: "10px 12px",
+                              textAlign: "right",
+                              fontWeight: 700,
+                              color: trade.pnl > 0 ? "var(--bullish)" : trade.pnl < 0 ? "var(--bearish)" : "var(--text-secondary)"
+                            }}>
+                              {trade.pnl > 0 ? "+" : ""}{trade.pnl !== 0 ? `₹${trade.pnl.toLocaleString("en-IN")}` : "—"}
+                              {trade.pnl_percent !== 0 && (
+                                <span style={{ fontSize: 11, fontWeight: 500, marginLeft: 4 }}>
+                                  ({trade.pnl_percent > 0 ? "+" : ""}{trade.pnl_percent}%)
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: "10px 12px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
+                              ₹{trade.balance.toLocaleString("en-IN")}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {user?.subscription_tier !== "pro" && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: "rgba(10, 12, 38, 0.8)",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      zIndex: 2,
+                      padding: 20,
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ fontSize: 28, marginBottom: 8 }}>🔒</span>
+                    <h4 style={{ margin: "0 0 6px 0", fontSize: 14, fontWeight: 700, color: "#fff" }}>
+                      Transaction History & Exports Locked
+                    </h4>
+                    <p style={{ margin: "0 0 12px 0", fontSize: 12, color: "var(--text-muted)", maxWidth: 350, lineHeight: 1.5 }}>
+                      Unlock full trade reports, complete transaction records, and PDF/CSV data exports with Vedora Pro.
+                    </p>
+                    <Link
+                      href="/dashboard/upgrade"
+                      style={{
+                        background: "linear-gradient(90deg, var(--primary), var(--secondary))",
+                        border: "none",
+                        borderRadius: 6,
+                        color: "white",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        padding: "6px 16px",
+                        cursor: "pointer",
+                        textDecoration: "none",
+                        boxShadow: "0 4px 15px rgba(108, 92, 231, 0.4)",
+                      }}
+                    >
+                      Unlock Pro Tier
+                    </Link>
+                  </div>
+                )}
               </div>
             </>
           )}

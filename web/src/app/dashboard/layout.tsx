@@ -5,23 +5,26 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 
 import api, { AlertResponse } from "@/lib/api";
+import { LanguageProvider, useLanguage } from "./languageContext";
+import { CurrencyProvider, useCurrency } from "./currencyContext";
+import { TourGuide } from "./TourGuide";
 
 const navItems = [
-  { icon: "📊", label: "Overview", href: "/dashboard" },
-  { icon: "📈", label: "Markets", href: "/dashboard/markets" },
-  { icon: "⭐", label: "Watchlist", href: "/dashboard/watchlist" },
-  { icon: "💼", label: "Portfolio", href: "/dashboard/portfolio" },
-  { icon: "🧪", label: "Strategy Lab", href: "/dashboard/backtest" },
-  { icon: "👥", label: "Community", href: "/dashboard/community" },
-  { icon: "🤖", label: "AI Predictions", href: "/dashboard/predictions" },
-  { icon: "📰", label: "News", href: "/dashboard/news" },
-  { icon: "🧠", label: "AI Coach", href: "/dashboard/coach" },
-  { icon: "🎓", label: "Learn", href: "/dashboard/learn" },
+  { icon: "📊", label: "Overview", href: "/dashboard", key: "nav_overview" },
+  { icon: "📈", label: "Markets", href: "/dashboard/markets", key: "nav_markets" },
+  { icon: "⭐", label: "Watchlist", href: "/dashboard/watchlist", key: "nav_watchlist" },
+  { icon: "💼", label: "Portfolio", href: "/dashboard/portfolio", key: "nav_portfolio" },
+  { icon: "🧪", label: "Strategy Lab", href: "/dashboard/backtest", key: "nav_backtest" },
+  { icon: "👥", label: "Community", href: "/dashboard/community", key: "nav_community" },
+  { icon: "🤖", label: "AI Predictions", href: "/dashboard/predictions", key: "nav_predictions" },
+  { icon: "📰", label: "News", href: "/dashboard/news", key: "nav_news" },
+  { icon: "🧠", label: "AI Coach", href: "/dashboard/coach", key: "nav_coach" },
+  { icon: "🎓", label: "Learn", href: "/dashboard/learn", key: "nav_learn" },
 ];
 
 
 const bottomNavItems = [
-  { icon: "⚙️", label: "Settings", href: "/dashboard/settings" },
+  { icon: "⚙️", label: "Settings", href: "/dashboard/settings", key: "nav_settings" },
 ];
 
 export default function DashboardLayout({
@@ -29,9 +32,24 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  return (
+    <LanguageProvider>
+      <CurrencyProvider>
+        <DashboardLayoutContent>{children}</DashboardLayoutContent>
+      </CurrencyProvider>
+    </LanguageProvider>
+  );
+}
+
+function DashboardLayoutContent({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<{ full_name: string; email: string; role: string } | null>(null);
+  const { t } = useLanguage();
+  const [user, setUser] = useState<{ full_name: string; email: string; role: string; subscription_tier?: string } | null>(null);
   const [currentTime, setCurrentTime] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -43,11 +61,28 @@ export default function DashboardLayout({
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
+  // ── Notifications State ──
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
+  const [notifsOpen, setNotifsOpen] = useState(false);
+
   // New alert form state
   const [alertSymbol, setAlertSymbol] = useState("");
   const [alertType, setAlertType] = useState("price_above");
   const [alertTargetValue, setAlertTargetValue] = useState("");
   const [alertPatternName, setAlertPatternName] = useState("Golden Cross");
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await api.getNotifications();
+      if (res.ok && res.data) {
+        setNotifications(res.data.notifications || []);
+        setUnreadNotifsCount(res.data.unread_count || 0);
+      }
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  }, []);
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -55,10 +90,11 @@ export default function DashboardLayout({
       if (res.ok && res.data) {
         setAlerts(res.data);
       }
+      await fetchNotifications();
     } catch (err) {
       console.error("Error fetching alerts:", err);
     }
-  }, []);
+  }, [fetchNotifications]);
 
   const checkAlerts = useCallback(async () => {
     try {
@@ -66,10 +102,11 @@ export default function DashboardLayout({
       if (res.ok && res.data) {
         setAlerts(res.data.all_alerts);
       }
+      await fetchNotifications();
     } catch (err) {
       console.error("Error checking alerts:", err);
     }
-  }, []);
+  }, [fetchNotifications]);
 
   const handleDeleteAlert = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -100,6 +137,41 @@ export default function DashboardLayout({
     }
   };
 
+  const handleMarkAllRead = async () => {
+    try {
+      const res = await api.markAllNotificationsRead();
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        setUnreadNotifsCount(0);
+      }
+    } catch (err) {
+      console.error("Failed to mark all read:", err);
+    }
+  };
+
+  const handleMarkOneRead = async (id: string) => {
+    try {
+      const res = await api.markNotificationRead(id);
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+        setUnreadNotifsCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (err) {
+      console.error("Failed to mark read:", err);
+    }
+  };
+
+  const handleClearRead = async () => {
+    try {
+      const res = await api.clearNotifications();
+      if (res.ok) {
+        setNotifications(prev => prev.filter(n => !n.is_read));
+      }
+    } catch (err) {
+      console.error("Failed to clear notifications:", err);
+    }
+  };
+
   const triggeredCount = alerts.filter(a => a.is_triggered).length;
 
   useEffect(() => {
@@ -116,6 +188,23 @@ export default function DashboardLayout({
     const interval = setInterval(checkAlerts, 20000);
     return () => clearInterval(interval);
   }, [router, fetchAlerts, checkAlerts]);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const token = localStorage.getItem("vedora_token");
+      if (!token) return;
+      try {
+        const res = await api.getProfile();
+        if (res.ok && res.data) {
+          setUser(res.data as any);
+          localStorage.setItem("vedora_user", JSON.stringify(res.data));
+        }
+      } catch (err) {
+        console.error("Failed to fetch layout profile", err);
+      }
+    };
+    fetchProfile();
+  }, [pathname]);
 
   useEffect(() => {
     const updateTime = () => {
@@ -209,12 +298,12 @@ export default function DashboardLayout({
                 key={item.href}
                 href={item.href}
                 className={`sidebar-nav-item ${isActive(item.href) ? "active" : ""}`}
-                title={sidebarCollapsed ? item.label : undefined}
+                title={sidebarCollapsed ? t(item.key) : undefined}
                 onClick={() => setMobileSidebarOpen(false)}
               >
                 <span className="sidebar-nav-icon">{item.icon}</span>
                 {!sidebarCollapsed && (
-                  <span className="sidebar-nav-text">{item.label}</span>
+                  <span className="sidebar-nav-text">{t(item.key)}</span>
                 )}
                 {isActive(item.href) && <div className="sidebar-active-indicator" />}
               </Link>
@@ -229,12 +318,12 @@ export default function DashboardLayout({
                 key={item.href}
                 href={item.href}
                 className={`sidebar-nav-item ${isActive(item.href) ? "active" : ""}`}
-                title={sidebarCollapsed ? item.label : undefined}
+                title={sidebarCollapsed ? t(item.key) : undefined}
                 onClick={() => setMobileSidebarOpen(false)}
               >
                 <span className="sidebar-nav-icon">{item.icon}</span>
                 {!sidebarCollapsed && (
-                  <span className="sidebar-nav-text">{item.label}</span>
+                  <span className="sidebar-nav-text">{t(item.key)}</span>
                 )}
               </Link>
             ))}
@@ -249,7 +338,9 @@ export default function DashboardLayout({
             </div>
             <div className="sidebar-user-info">
               <div className="sidebar-user-name">{user.full_name}</div>
-              <div className="sidebar-user-plan">Free Plan</div>
+              <div className="sidebar-user-plan" style={{ color: user.subscription_tier === "pro" ? "#f1c40f" : "var(--text-muted)", fontWeight: user.subscription_tier === "pro" ? 700 : 400 }}>
+                {user.subscription_tier === "pro" ? "⚡ Pro Member" : "Free Plan"}
+              </div>
             </div>
             <button
               className="sidebar-logout-btn"
@@ -398,6 +489,113 @@ export default function DashboardLayout({
               )}
             </div>
 
+            {/* Real-time Notification Center */}
+            <div className="alerts-wrapper" style={{ marginRight: 8 }}>
+              <button 
+                className="header-icon-btn" 
+                id="notifications-center-btn"
+                onClick={() => {
+                  setNotifsOpen(!notifsOpen);
+                  setAlertsOpen(false);
+                }}
+                title="Notifications"
+              >
+                {/* Bell Icon */}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                {unreadNotifsCount > 0 && (
+                  <span className="notification-badge" style={{ background: "var(--primary)" }}>{unreadNotifsCount}</span>
+                )}
+              </button>
+
+              {notifsOpen && (
+                <div className="alerts-dropdown" style={{ right: 0 }}>
+                  <div className="alerts-dropdown-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span className="alerts-dropdown-title">System & Alerts Feed</span>
+                    <button 
+                      className="alerts-dropdown-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMarkAllRead();
+                      }}
+                      style={{ fontSize: 11, cursor: "pointer", color: "var(--primary-light)" }}
+                    >
+                      Read All
+                    </button>
+                  </div>
+
+                  <div className="alerts-dropdown-list" style={{ maxHeight: 320, overflowY: "auto" }}>
+                    {notifications.length === 0 ? (
+                      <div className="alerts-dropdown-empty" style={{ padding: "20px 10px", textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>
+                        No notifications.
+                      </div>
+                    ) : (
+                      notifications.map((notif) => {
+                        const notifColor =
+                          notif.category === "alert"
+                            ? "var(--neutral-color)"
+                            : notif.category === "insight"
+                            ? "var(--bullish)"
+                            : "var(--primary-light)";
+                        
+                        return (
+                          <div 
+                            key={notif.id} 
+                            className={`alerts-dropdown-item`}
+                            style={{ 
+                              opacity: notif.is_read ? 0.5 : 1, 
+                              borderLeft: `3px solid ${notifColor}`,
+                              paddingLeft: 10,
+                              cursor: "pointer",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: 8
+                            }}
+                            onClick={() => handleMarkOneRead(notif.id)}
+                          >
+                            <div className="alerts-dropdown-item-main" style={{ flex: 1 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700 }}>
+                                <span style={{ color: notifColor, textTransform: "uppercase" }}>{notif.category}</span>
+                                <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
+                                  {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <div style={{ fontWeight: 600, fontSize: 12, marginTop: 2, color: "var(--text-primary)" }}>{notif.title}</div>
+                              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2, lineHeight: 1.3 }}>{notif.message}</div>
+                              {notif.symbol && (
+                                <Link 
+                                  href={`/dashboard/stock/${notif.symbol}`}
+                                  style={{ fontSize: 10, display: "inline-block", color: "var(--secondary-light)", marginTop: 4, textDecoration: "underline" }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  Inspect {notif.symbol}
+                                </Link>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <div className="alerts-dropdown-footer" style={{ borderTop: "1px solid var(--border)", display: "flex", justifyContent: "center", padding: 8 }}>
+                    <button 
+                      className="alerts-dropdown-footer-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleClearRead();
+                      }}
+                      style={{ fontSize: 11, background: "transparent", color: "var(--text-muted)", border: "none", cursor: "pointer" }}
+                    >
+                      Clear Read
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* User */}
             <div className="header-user-avatar">
               {user?.full_name?.charAt(0) || "U"}
@@ -537,6 +735,7 @@ export default function DashboardLayout({
           </div>
         </div>
       )}
+      <TourGuide />
     </div>
   );
 }

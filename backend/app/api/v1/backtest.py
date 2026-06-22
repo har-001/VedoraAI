@@ -5,10 +5,12 @@ Exposes endpoints for running historical strategy backtests.
 
 from typing import Any, Dict
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from app.ai.backtester.engine import backtester_engine
+from app.api.deps import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/backtest", tags=["Strategy Backtester"])
 
@@ -32,10 +34,20 @@ class BacktestRequest(BaseModel):
 
 
 @router.post("/run")
-async def run_backtest(payload: BacktestRequest):
+async def run_backtest(
+    payload: BacktestRequest,
+    user: User = Depends(get_current_user),
+):
     """
     Run backtesting simulation for a given symbol and strategy parameters.
+    Requires Pro tier for windows longer than 6 months.
     """
+    if user.subscription_tier != "pro" and payload.range_period not in ("3mo", "6mo"):
+        raise HTTPException(
+            status_code=403,
+            detail="Simulation windows longer than 6 months are locked. Please upgrade to Pro tier to unlock extended periods (1y/2y).",
+        )
+
     try:
         results = await backtester_engine.run(
             symbol=payload.symbol,

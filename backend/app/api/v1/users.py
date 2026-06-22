@@ -35,6 +35,7 @@ class UserProfileResponse(BaseModel):
     phone: Optional[str]
     avatar_url: Optional[str]
     role: str
+    subscription_tier: str
     is_verified: bool
     is_2fa_enabled: bool
     bio: Optional[str]
@@ -82,6 +83,7 @@ async def get_profile(user: User = Depends(get_current_user)):
         phone=user.phone,
         avatar_url=user.avatar_url,
         role=user.role,
+        subscription_tier=user.subscription_tier,
         is_verified=user.is_verified,
         is_2fa_enabled=user.is_2fa_enabled,
         bio=user.bio,
@@ -104,6 +106,9 @@ async def update_profile(
     for field, value in update_data.items():
         setattr(user, field, value)
 
+    await db.commit()
+    await db.refresh(user)
+
     return UserProfileResponse(
         id=str(user.id),
         email=user.email,
@@ -111,6 +116,61 @@ async def update_profile(
         phone=user.phone,
         avatar_url=user.avatar_url,
         role=user.role,
+        subscription_tier=user.subscription_tier,
+        is_verified=user.is_verified,
+        is_2fa_enabled=user.is_2fa_enabled,
+        bio=user.bio,
+        preferred_language=user.preferred_language,
+        preferred_currency=user.preferred_currency,
+        timezone=user.timezone,
+        created_at=str(user.created_at),
+    )
+
+
+@router.post("/me/upgrade", response_model=UserProfileResponse)
+async def upgrade_user_tier(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upgrade user subscription tier to pro."""
+    user.subscription_tier = "pro"
+    await db.commit()
+    await db.refresh(user)
+    return UserProfileResponse(
+        id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        phone=user.phone,
+        avatar_url=user.avatar_url,
+        role=user.role,
+        subscription_tier=user.subscription_tier,
+        is_verified=user.is_verified,
+        is_2fa_enabled=user.is_2fa_enabled,
+        bio=user.bio,
+        preferred_language=user.preferred_language,
+        preferred_currency=user.preferred_currency,
+        timezone=user.timezone,
+        created_at=str(user.created_at),
+    )
+
+
+@router.post("/me/downgrade", response_model=UserProfileResponse)
+async def downgrade_user_tier(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Downgrade user subscription tier to free."""
+    user.subscription_tier = "free"
+    await db.commit()
+    await db.refresh(user)
+    return UserProfileResponse(
+        id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        phone=user.phone,
+        avatar_url=user.avatar_url,
+        role=user.role,
+        subscription_tier=user.subscription_tier,
         is_verified=user.is_verified,
         is_2fa_enabled=user.is_2fa_enabled,
         bio=user.bio,

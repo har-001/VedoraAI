@@ -70,9 +70,29 @@ async def create_alert(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new price or technical indicator alert."""
+    """Create a new price or technical indicator alert. Requires Pro for more than 3 active alerts or premium indicators."""
     # Normalize inputs
     symbol = body.symbol.upper().strip()
+    
+    # Check restrictions for Free tier
+    if user.subscription_tier != "pro":
+        # Limit active alerts
+        active_result = await db.execute(
+            select(Alert).where(Alert.user_id == user.id, Alert.is_triggered == False)
+        )
+        active_count = len(active_result.scalars().all())
+        if active_count >= 3:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Active alert limit reached. Free accounts are limited to a maximum of 3 active alerts. Upgrade to Pro for unlimited alerts.",
+            )
+
+        # Limit patterns
+        if body.alert_type == "technical_pattern" and body.pattern_name in ("Golden Cross", "Death Cross"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"The '{body.pattern_name}' technical pattern indicator is a premium feature. Upgrade to Pro to configure alert rules for it.",
+            )
     
     # Validation based on alert type
     if body.alert_type in ("price_above", "price_below"):
@@ -184,6 +204,7 @@ async def check_alerts(
             current_p = prices.get(alert.symbol)
             if current_p is not None:
                 is_triggered = False
+                direction = "crossed above" if alert.alert_type == "price_above" else "fallen below"
                 if alert.alert_type == "price_above" and current_p >= alert.target_value:
                     is_triggered = True
                 elif alert.alert_type == "price_below" and current_p <= alert.target_value:
@@ -193,6 +214,17 @@ async def check_alerts(
                     alert.is_triggered = True
                     alert.triggered_at = datetime.now(timezone.utc)
                     triggered_alerts.append(alert)
+                    
+                    # Create in-app notification
+                    from app.models.notification import Notification
+                    notif = Notification(
+                        user_id=user.id,
+                        title=f"Alert Triggered: {alert.symbol}",
+                        message=f"{alert.symbol} has {direction} your target price of ₹{alert.target_value}. Current price: ₹{current_p}.",
+                        category="alert",
+                        symbol=alert.symbol
+                    )
+                    db.add(notif)
 
     # 2. Evaluate Pattern Alerts
     if pattern_alerts:
@@ -215,6 +247,17 @@ async def check_alerts(
                 alert.is_triggered = True
                 alert.triggered_at = datetime.now(timezone.utc)
                 triggered_alerts.append(alert)
+                
+                # Create in-app notification
+                from app.models.notification import Notification
+                notif = Notification(
+                    user_id=user.id,
+                    title=f"Pattern Alert: {alert.symbol}",
+                    message=f"A technical pattern '{alert.pattern_name}' was detected on {alert.symbol}.",
+                    category="alert",
+                    symbol=alert.symbol
+                )
+                db.add(notif)
 
     # Save changes if any alerts were triggered
     if triggered_alerts:

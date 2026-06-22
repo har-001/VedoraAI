@@ -26,6 +26,7 @@ from app.models.market import (
 )
 from app.models.community import CommunityPost
 from app.models.alert import Alert
+from app.models.notification import Notification
 
 settings = get_settings()
 
@@ -37,6 +38,15 @@ async def init_models():
         async with engine.begin() as conn:
             # Create all tables if they don't exist
             await conn.run_sync(Base.metadata.create_all)
+            
+            # Simple migration for existing database
+            try:
+                from sqlalchemy import text
+                await conn.execute(text("ALTER TABLE users ADD COLUMN subscription_tier VARCHAR(20) DEFAULT 'free'"))
+                print("Migration: Added subscription_tier column to users table.")
+            except Exception:
+                # Column likely already exists
+                pass
         print("Database tables initialized successfully!")
     except Exception as e:
         print(f"Failed to initialize database: {e}", file=sys.stderr)

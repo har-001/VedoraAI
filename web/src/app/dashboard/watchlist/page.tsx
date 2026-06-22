@@ -2,8 +2,12 @@
 
 import { useEffect, useState, useRef } from "react";
 import api, { MarketQuote, WatchlistResponse, SearchResult } from "@/lib/api";
+import { useLanguage } from "../languageContext";
+import { useCurrency } from "../currencyContext";
 
 export default function WatchlistPage() {
+  const { t } = useLanguage();
+  const { formatPrice } = useCurrency();
   const [watchlist, setWatchlist] = useState<WatchlistResponse | null>(null);
   const [items, setItems] = useState<MarketQuote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,7 +131,7 @@ export default function WatchlistPage() {
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
       <div className="dash-welcome" style={{ marginBottom: 20 }}>
         <div>
-          <h1 className="dash-welcome-title">⭐ Watchlist</h1>
+          <h1 className="dash-welcome-title">⭐ {t("nav_watchlist")}</h1>
           <p className="dash-welcome-sub">Track your favourite assets and AI insights</p>
         </div>
         <button
@@ -202,7 +206,7 @@ export default function WatchlistPage() {
                   <div style={{ display: "flex", alignItems: "center", gap: 24, justifyContent: "flex-end", flex: 3 }}>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 14 }}>
-                        ₹{item.current_price?.toLocaleString("en-IN")}
+                        {formatPrice(item.current_price)}
                       </div>
                       <div style={{ fontSize: 12, fontWeight: 700, color: item.change_percent >= 0 ? "var(--bullish)" : "var(--bearish)" }}>
                         {item.change_percent >= 0 ? "+" : ""}{item.change_percent?.toFixed(2)}%

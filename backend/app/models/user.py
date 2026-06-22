@@ -36,6 +36,7 @@ class User(Base):
 
     # Auth
     role = Column(String(20), nullable=False, default="user")  # user, admin, moderator
+    subscription_tier = Column(String(20), nullable=False, default="free")
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     is_2fa_enabled = Column(Boolean, default=False)

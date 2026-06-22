@@ -2,10 +2,14 @@
 
 import { useEffect, useState, useRef, Fragment } from "react";
 import api, { MarketQuote, ScanResponse, ScanItem } from "@/lib/api";
+import { useLanguage } from "../languageContext";
+import { useCurrency } from "../currencyContext";
 
 const sectors = ["All", "IT", "Banking", "Energy", "FMCG", "Auto", "Pharma", "Metal", "NBFC", "Infra", "Telecom"];
 
 export default function MarketsPage() {
+  const { t } = useLanguage();
+  const { formatPrice } = useCurrency();
   const [activeTab, setActiveTab] = useState<"live" | "scanner">("live");
   const [stocks, setStocks] = useState<MarketQuote[]>([]);
   const [filter, setFilter] = useState("All");
@@ -158,7 +162,7 @@ export default function MarketsPage() {
     <div style={{ maxWidth: 1200, margin: "0 auto" }}>
       <div className="dash-welcome" style={{ marginBottom: 20 }}>
         <div>
-          <h1 className="dash-welcome-title">📈 Markets</h1>
+          <h1 className="dash-welcome-title">📈 {t("nav_markets")}</h1>
           <p className="dash-welcome-sub">Live prices and AI technical pattern scanner for NSE stocks</p>
         </div>
       </div>
@@ -189,7 +193,7 @@ export default function MarketsPage() {
             transition: "all 0.2s"
           }}
         >
-          📈 Live Quotes
+          📈 {t("al_dropdown_title") !== "Price & Pattern Alerts" ? t("nav_markets") : "Live Quotes"}
         </button>
         <button
           onClick={() => setActiveTab("scanner")}
@@ -206,7 +210,7 @@ export default function MarketsPage() {
             transition: "all 0.2s"
           }}
         >
-          🔍 AI Scanner
+          🔍 {t("ov_scanner")}
         </button>
       </div>
 
@@ -319,7 +323,7 @@ export default function MarketsPage() {
                         </span>
                       </td>
                       <td style={{ ...tdStyle, fontFamily: "var(--font-mono)", fontWeight: 600 }}>
-                        ₹{stock.current_price?.toLocaleString("en-IN")}
+                        {formatPrice(stock.current_price)}
                       </td>
                       <td
                         style={{
@@ -454,7 +458,7 @@ export default function MarketsPage() {
                             {item.symbol}
                           </td>
                           <td style={{ ...tdStyle, textAlign: "left", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
-                            ₹{item.price.toLocaleString("en-IN")}
+                            {formatPrice(item.price)}
                           </td>
                           <td style={{ ...tdStyle, textAlign: "left" }}>
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>

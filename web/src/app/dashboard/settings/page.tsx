@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useLanguage } from "../languageContext";
+import { useCurrency } from "../currencyContext";
+import api from "@/lib/api";
 
 export default function SettingsPage() {
+  const { language, setLanguage, t } = useLanguage();
+  const { currency, setCurrency } = useCurrency();
   const [theme, setTheme] = useState<"dark" | "light">("dark");
-  const [user, setUser] = useState<{ full_name: string; email: string } | null>(null);
-  const [notifications, setNotifications] = useState({
-    predictions: true,
-    priceAlerts: true,
-    news: false,
-    community: false,
-    email: true,
-  });
+  const [user, setUser] = useState<{ full_name: string; email: string; subscription_tier?: string } | null>(null);
 
   useEffect(() => {
     document.title = "Settings — VedoraAI";
@@ -19,11 +18,53 @@ export default function SettingsPage() {
     if (userData) {
       try { setUser(JSON.parse(userData)); } catch { /* ignore */ }
     }
+    
+    // Fetch latest user details from API
+    const fetchProfile = async () => {
+      try {
+        const res = await api.getProfile();
+        if (res.ok && res.data) {
+          setUser(res.data as any);
+          localStorage.setItem("vedora_user", JSON.stringify(res.data));
+        }
+      } catch (err) {
+        console.error("Failed to fetch settings profile", err);
+      }
+    };
+    fetchProfile();
   }, []);
-
+  const [notifications, setNotifications] = useState({
+    predictions: true,
+    priceAlerts: true,
+    news: false,
+    community: false,
+    email: true,
+  });
   const toggleTheme = (newTheme: "dark" | "light") => {
     setTheme(newTheme);
     document.documentElement.setAttribute("data-theme", newTheme);
+  };
+
+  const handleDowngrade = async () => {
+    if (confirm("Are you sure you want to downgrade to the Free plan? (For testing purposes)")) {
+      try {
+        const res = await api.post("/users/me/downgrade");
+        if (res.ok) {
+          alert("Downgraded to Free Plan successfully!");
+          // Fetch updated profile
+          const profileRes = await api.getProfile();
+          if (profileRes.ok && profileRes.data) {
+            setUser(profileRes.data as any);
+            localStorage.setItem("vedora_user", JSON.stringify(profileRes.data));
+            window.location.reload();
+          }
+        } else {
+          alert("Failed to downgrade: " + (res.error || "Unknown error"));
+        }
+      } catch (err) {
+        alert("Error downgrading");
+      }
+    }
   };
 
   return (
@@ -55,8 +96,45 @@ export default function SettingsPage() {
           <div>
             <div style={{ fontWeight: 700, fontSize: 16 }}>{user?.full_name || "User"}</div>
             <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{user?.email || "—"}</div>
-            <div style={{ fontSize: 11, color: "var(--primary-light)", fontWeight: 600, marginTop: 2 }}>
-              Free Plan
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 2 }}>
+              <span style={{ fontSize: 11, color: user?.subscription_tier === "pro" ? "#f1c40f" : "var(--primary-light)", fontWeight: 700 }}>
+                {user?.subscription_tier === "pro" ? "⚡ PRO PLAN MEMBER" : "FREE PLAN"}
+              </span>
+              {user?.subscription_tier === "pro" ? (
+                <button
+                  onClick={handleDowngrade}
+                  style={{
+                    background: "rgba(255, 82, 82, 0.15)",
+                    border: "1px solid rgba(255, 82, 82, 0.3)",
+                    borderRadius: 4,
+                    color: "var(--bearish)",
+                    fontSize: 10,
+                    padding: "2px 6px",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Downgrade (Test)
+                </button>
+              ) : (
+                <Link
+                  href="/dashboard/upgrade"
+                  style={{
+                    background: "linear-gradient(90deg, var(--primary), var(--secondary))",
+                    border: "none",
+                    borderRadius: 4,
+                    color: "white",
+                    fontSize: 10,
+                    padding: "3px 8px",
+                    cursor: "pointer",
+                    textDecoration: "none",
+                    fontWeight: 700,
+                    boxShadow: "0 0 10px rgba(108, 92, 231, 0.3)",
+                  }}
+                >
+                  Upgrade to Pro
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -169,10 +247,10 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Market Preferences */}
+      {/* Global Preferences */}
       <section className="dash-panel" style={{ marginBottom: 20 }}>
-        <h2 className="dash-section-title" style={{ marginBottom: 16 }}>Market Preferences</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <h2 className="dash-section-title" style={{ marginBottom: 16 }}>Global Preferences</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
           <div className="cut-input-group">
             <select className="input" id="settings-market" defaultValue="NSE">
               <option value="NSE">NSE (India)</option>
@@ -183,12 +261,32 @@ export default function SettingsPage() {
             <label htmlFor="settings-market" className="input-label">Primary Market</label>
           </div>
           <div className="cut-input-group">
-            <select className="input" id="settings-currency" defaultValue="INR">
+            <select
+              className="input"
+              id="settings-currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value as any)}
+            >
               <option value="INR">INR (₹)</option>
               <option value="USD">USD ($)</option>
               <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
             </select>
             <label htmlFor="settings-currency" className="input-label">Currency</label>
+          </div>
+          <div className="cut-input-group">
+            <select
+              className="input"
+              id="settings-language"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as any)}
+            >
+              <option value="en">English (EN)</option>
+              <option value="hi">हिन्दी (HI)</option>
+              <option value="es">Español (ES)</option>
+              <option value="de">Deutsch (DE)</option>
+            </select>
+            <label htmlFor="settings-language" className="input-label">Language</label>
           </div>
         </div>
       </section>
