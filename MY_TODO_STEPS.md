@@ -172,3 +172,29 @@ News aur Charts dono features ke liye aapko **koyi external paid keys khareedne 
 * **Sentiment Analysis**: Backend mein humne ek custom **NLP Sentiment Engine** lagaya hai. Jab news scrape hoti hai, toh backend us news text ke positive/negative financial keywords count karta hai aur sentiment percentage (Bullish, Bearish, or Neutral) calculate karke frontend ko bhejta hai.
 * **Settings**: Agar aapko custom RSS feeds add karni hain, toh backend `app/services/market_data.py` mein dynamic links modify kar sakte hain.
 
+---
+
+## 🔍 7. Stock Chart Analyze aur Self-Research Kahan Se Karein?
+
+Agar kisi user ko khud se kisi stock ka chart analyze karna hai, toh uske liye humne ek dedicated **Stock Detail Page** banaya hai.
+
+### User Stock Detail Page par kaise jayega?
+1. **Search (Ctrl + K / Cmd + K)**: Dashboard mein kahin bhi `Ctrl+K` dabakar kisi bhi share ka naam (jaise `RELIANCE` ya `TCS`) search karein aur click karein.
+2. **Markets Table**: `/dashboard/markets` page par kisi bhi share ke naam par click karein.
+3. **Watchlist / Portfolio**: Apni watchlist ya portfolio table mein kisi stock par click karein.
+4. **Market Heatmap**: Overview dashboard par heatmap grid ke kisi block par click karein.
+
+### Stock Detail Page Par Kya-Kya Milta Hai?
+* **Interactive Chart (Hover Crosshair)**: Is chart par user apna cursor/mouse scroll karega, toh use us specific point ka exact price aur date-time show hoga (hover interaction).
+* **Multi-Timeframe Analysis**: User chart ke upar tab buttons se timeframe badal sakta hai:
+  - **1D** (1 Day)
+  - **1W** (1 Week)
+  - **1M** (1 Month)
+  - **3M** (3 Month)
+  - **6M** (6 Month)
+  - **1Y** (1 Year)
+* **AI Consensus Outlook**: AI engine ka generated prediction, confidence score aur research signal target range ke sath dikhega.
+* **Fundamentals Matrix**: Market Cap, P/E Ratio, Volume, High/Low parameters.
+* **Related News & Sentiments**: Us stock se related saari news and positive/negative sentiment badges niche ek panel mein show honge.
+
+
