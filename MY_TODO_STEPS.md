@@ -107,3 +107,51 @@ Agar aapke paas server (DigitalOcean droplet / AWS instance) hai:
    docker-compose -f infra/docker/docker-compose.prod.yml up -d --build
    ```
    Dono apps automatically launch ho jayengi.
+
+---
+
+## 🔑 5. Important Configs, APIs aur Zaroori Settings (Detailed Info)
+
+Project ko sahi tareeqe se chalane ke liye niche likhi cheezein zaroori hain:
+
+### 1. Google Gemini API (AI Coach ke liye)
+- **Kyun chahiye?** AI Coach bot ke saath interactive financial chat karne ke liye.
+- **Kahan milegi?** [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey) se free key generate karein.
+- **Kahan lagana hai?** `backend/.env` file mein `GEMINI_API_KEY=your_key_here` set karein.
+- **Note**: Agar aap key nahi lagate, toh chat basic fallback template mode mein chalegi, par authentic AI results ke liye key lagana zaroori hai.
+
+### 2. Market Data (Yahoo Finance - Free)
+- **Kyun chahiye?** Real-time stock prices, historical charts, sector changes, aur heatmap data load karne ke liye.
+- **Kahan milegi?** Iske liye **koi API key nahi chahiye**! Humne backend mein direct free open-source `yfinance` Python library integrate ki hai. Yeh background mein automatic prices update karti hai.
+
+### 3. Database (SQLite vs PostgreSQL)
+- **Local (SQLite)**: By default, local machine par setup karne ke baad `backend/vedoraai.db` automatic ban jayegi. Aapko koi database software install nahi karna padega.
+- **Production (PostgreSQL)**: Jab aap project live deploy karenge, toh multiple users ke concurrency handles ke liye PostgreSQL recommended hai. `backend/.env` mein `DATABASE_URL` line ko update karke PostgreSQL address daal sakte hain.
+
+### 4. Security Keys (JWT / Auth Security)
+- **Kyun chahiye?** Users ke session login aur login security maintain karne ke liye.
+- **Kahan milegi?** Aap koi bhi random 32-character string (characters + numbers) manually generate kar sakte hain.
+- **Kahan lagana hai?** `backend/.env` mein:
+  ```env
+  SECRET_KEY=aapka_koi_bhi_unique_secret
+  JWT_SECRET_KEY=aapka_auth_secret
+  ```
+
+### 5. SMTP Email (OTP / Password Reset ke liye)
+- **Kyun chahiye?** User register karte waqt ya forgot password case mein email par OTP send karne ke liye.
+- **Kaise set karein (Gmail se)?**
+  1. Apne Google account settings mein jayein → 2-Step Verification enable karein.
+  2. "App Passwords" search karke generate karein.
+  3. Jo password mile, use `backend/.env` mein configure karein:
+     ```env
+     SMTP_HOST=smtp.gmail.com
+     SMTP_PORT=587
+     SMTP_USER=aapka-email@gmail.com
+     SMTP_PASSWORD=aapka-gmail-app-password
+     ```
+
+### 6. CORS / Allowed Origins (CORS Security)
+- **Kyun chahiye?** Frontend Next.js ko Backend API se connect karne ki permission dene ke liye.
+- **Kahan lagana hai?** `backend/.env` file mein `ALLOWED_ORIGINS` parameter check karein:
+  - Local ke liye: `http://localhost:3000`
+  - Live hone par isme apne frontend custom domain domain names add karein: e.g. `https://vedoraai.vercel.app`.
