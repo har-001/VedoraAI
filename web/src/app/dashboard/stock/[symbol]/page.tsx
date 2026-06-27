@@ -12,7 +12,27 @@ import api, {
 } from "@/lib/api";
 import { useCurrency } from "../../currencyContext";
 
-type Timeframe = "1w" | "1m" | "3m" | "6m" | "1y";
+export type Timeframe = "1m" | "2m" | "5m" | "15m" | "30m" | "1h" | "4h" | "1d" | "1w" | "1mo";
+
+export interface TimeframeConfig {
+  key: Timeframe;
+  label: string;
+  interval: string;
+  range: string;
+}
+
+export const TIMEFRAMES: TimeframeConfig[] = [
+  { key: "1m", label: "1 Min", interval: "1m", range: "1d" },
+  { key: "2m", label: "2 Min", interval: "2m", range: "1d" },
+  { key: "5m", label: "5 Min", interval: "5m", range: "1d" },
+  { key: "15m", label: "15 Min", interval: "15m", range: "1d" },
+  { key: "30m", label: "30 Min", interval: "30m", range: "1d" },
+  { key: "1h", label: "1 Hr", interval: "1h", range: "5d" },
+  { key: "4h", label: "4 Hr", interval: "1h", range: "1mo" },
+  { key: "1d", label: "1 Day", interval: "1d", range: "3mo" },
+  { key: "1w", label: "1 Wk", interval: "1wk", range: "1y" },
+  { key: "1mo", label: "1 Mo", interval: "1mo", range: "5y" }
+];
 
 export default function StockDetailPage() {
   const params = useParams();
@@ -26,11 +46,13 @@ export default function StockDetailPage() {
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [watchlists, setWatchlists] = useState<WatchlistResponse[]>([]);
   const [inWatchlist, setInWatchlist] = useState<boolean>(false);
+  const [candles, setCandles] = useState<ChartCandle[]>([]);
 
   // UI State
   const [loading, setLoading] = useState(true);
+  const [loadingChart, setLoadingChart] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [timeframe, setTimeframe] = useState<Timeframe>("6m");
+  const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [watchlistMenuOpen, setWatchlistMenuOpen] = useState(false);
 
@@ -45,12 +67,34 @@ export default function StockDetailPage() {
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
+  const fetchChartData = async () => {
+    if (!symbol) return;
+    try {
+      setLoadingChart(true);
+      const activeTf = TIMEFRAMES.find((t) => t.key === timeframe) || TIMEFRAMES.find((t) => t.key === "1d")!;
+      const res = await api.getStockChart(symbol, activeTf.interval, activeTf.range);
+      if (res.ok && res.data) {
+        setCandles(res.data.candles || []);
+      }
+    } catch (err) {
+      console.error("Error loading chart:", err);
+    } finally {
+      setLoadingChart(false);
+    }
+  };
+
   useEffect(() => {
     if (symbol) {
       document.title = `${symbol.toUpperCase()} Detail — VedoraAI`;
       fetchData();
     }
   }, [symbol]);
+
+  useEffect(() => {
+    if (symbol && timeframe) {
+      fetchChartData();
+    }
+  }, [symbol, timeframe]);
 
   const fetchData = async () => {
     try {
@@ -156,35 +200,23 @@ export default function StockDetailPage() {
     }
   };
 
-  // Get current chart data depending on timeframe
-  const getChartData = (): ChartCandle[] => {
-    if (!stockDetail) return [];
-    const chart6m = stockDetail.chart_6m || [];
-    const chart1y = stockDetail.chart_1y || [];
-
-    switch (timeframe) {
-      case "1w":
-        return chart6m.slice(-5);
-      case "1m":
-        return chart6m.slice(-22);
-      case "3m":
-        return chart6m.slice(-66);
-      case "6m":
-        return chart6m;
-      case "1y":
-        return chart1y;
-      default:
-        return chart6m;
-    }
-  };
-
   const renderSVGChart = () => {
     if (!stockDetail) return null;
-    const candles = getChartData();
+    if (loadingChart) {
+      return (
+        <div style={{ height: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", gap: 12 }}>
+          <svg className="animate-spin h-8 w-8 text-primary" style={{ width: 32, height: 32, animation: "spin 1s linear infinite" }} viewBox="0 0 24 24" fill="none">
+            <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Fetching live chart data...</span>
+        </div>
+      );
+    }
     if (candles.length === 0) {
       return (
         <div style={{ height: 300, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
-          No historical chart data available.
+          No chart data available for this timeframe.
         </div>
       );
     }
@@ -485,11 +517,11 @@ export default function StockDetailPage() {
           <div className="dash-panel" style={{ padding: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>📊 Interactive Chart</h2>
-              <div style={{ display: "flex", gap: 4, background: "var(--surface)", padding: 3, borderRadius: 8, border: "1px solid var(--border)" }}>
-                {(["1w", "1m", "3m", "6m", "1y"] as Timeframe[]).map((tf) => (
+              <div style={{ display: "flex", gap: 4, background: "var(--surface)", padding: 3, borderRadius: 8, border: "1px solid var(--border)", overflowX: "auto", maxWidth: "100%" }}>
+                {TIMEFRAMES.map((tf) => (
                   <button
-                    key={tf}
-                    onClick={() => setTimeframe(tf)}
+                    key={tf.key}
+                    onClick={() => setTimeframe(tf.key)}
                     style={{
                       border: "none",
                       outline: "none",
@@ -498,11 +530,12 @@ export default function StockDetailPage() {
                       fontSize: 11,
                       fontWeight: 700,
                       cursor: "pointer",
-                      background: timeframe === tf ? "var(--border)" : "transparent",
-                      color: timeframe === tf ? "var(--text-primary)" : "var(--text-muted)",
+                      whiteSpace: "nowrap",
+                      background: timeframe === tf.key ? "var(--border)" : "transparent",
+                      color: timeframe === tf.key ? "var(--text-primary)" : "var(--text-muted)",
                     }}
                   >
-                    {tf.toUpperCase()}
+                    {tf.label}
                   </button>
                 ))}
               </div>

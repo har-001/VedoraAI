@@ -164,8 +164,11 @@ News aur Charts dono features ke liye aapko **koyi external paid keys khareedne 
 
 ### 1. Stock Charts (Graph)
 * **Web Frontend (Next.js)**: Charts ko draw karne ke liye humne custom SVG components ka use kiya hai. Isliye isme **koyi external charting library (jaise TradingView ya Chart.js) download karne ki zaroorat nahi hai**.
-* **Mobile Client (Flutter)**: Flutter app mein `fl_chart` library configure hai jo static SVG graphs draw karti hai.
-* **Data Flow**: Graph ka historical stock price data backend ke `/market/chart/{symbol}` route se aata hai. Yeh data backend automatically Yahoo Finance (Free API) se fetch kar leta hai.
+* **Live Dynamic Timeframes**: User chart par dynamic live intraday aur historical intervals dekh sakta hai:
+  - **Intraday Intervals**: `1 Min`, `2 Min`, `5 Min`, `15 Min`, `30 Min`, `1 Hr`, `4 Hr`
+  - **Historical Intervals**: `1 Day`, `1 Wk`, `1 Mo`
+* **Data Flow**: Jab user tab button par click karke timeframe badalta hai, Next.js ek dynamic API request `/api/v1/market/chart/{symbol}?interval={interval}&range={range}` ke through backend se live data fetch karta hai. Backend automatically Yahoo Finance (Free API) se candles nikal kar draw karta hai.
+
 
 ### 2. Live Market News
 * **News Fetching**: Backend directly Yahoo Finance ke public RSS feed links ko scrap karta hai. Isliye news streams ke liye **koyi paid News API Key (jaise NewsAPI) nahi chahiye**.

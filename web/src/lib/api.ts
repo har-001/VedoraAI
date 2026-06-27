@@ -753,6 +753,10 @@ class ApiClient {
     return this.request<StockDetailResponse>(`/market/detail/${symbol}`);
   }
 
+  async getStockChart(symbol: string, interval: string, range: string) {
+    return this.request<{ candles: ChartCandle[] }>(`/market/chart/${symbol}?interval=${interval}&range=${range}`);
+  }
+
   // ── Portfolio Analytics ─────────────────────
   async getPortfolioAnalytics(portfolioId: string) {
     return this.request<PortfolioAnalyticsResponse>(`/portfolios/${portfolioId}/analytics`);
